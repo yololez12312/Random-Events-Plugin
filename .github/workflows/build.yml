@@ -1,41 +1,37 @@
+```yaml
       - name: Build plugin
         shell: bash
         run: |
-          echo "=== Finding all POM files ==="
-          find buildsrc -name pom.xml -print
+          POM="buildsrc/RandomWorldEvents/pom.xml"
 
-          echo "=== Searching for VaultAPI ==="
-          grep -RniE 'VaultAPI|MilkBowl|vaultapi' buildsrc --include='pom.xml' || true
+          echo "=== Checking VaultAPI dependency ==="
+          grep -niE 'VaultAPI|MilkBowl|vaultapi' "$POM" || true
 
+          echo "=== Removing VaultAPI dependency ==="
           python3 - <<'PY'
-          import glob
           import xml.etree.ElementTree as ET
 
-          for path in glob.glob("buildsrc/**/pom.xml", recursive=True):
-              tree = ET.parse(path)
-              root = tree.getroot()
-              ns = {"m": "http://maven.apache.org/POM/4.0.0"}
-              removed = 0
+          path = "buildsrc/RandomWorldEvents/pom.xml"
+          tree = ET.parse(path)
+          root = tree.getroot()
+          ns = {"m": "http://maven.apache.org/POM/4.0.0"}
+          removed = 0
 
-              for deps in root.findall(".//m:dependencies", ns):
-                  for dep in list(deps):
-                      group = (dep.findtext("m:groupId", default="", namespaces=ns) or "").strip().lower()
-                      artifact = (dep.findtext("m:artifactId", default="", namespaces=ns) or "").strip().lower()
+          for deps in root.findall(".//m:dependencies", ns):
+              for dep in list(deps):
+                  group = (dep.findtext("m:groupId", default="", namespaces=ns) or "").strip().lower()
+                  artifact = (dep.findtext("m:artifactId", default="", namespaces=ns) or "").strip().lower()
 
-                      if group == "com.github.milkbowl" or artifact == "vaultapi":
-                          deps.remove(dep)
-                          removed += 1
-                          print(f"Removed VaultAPI dependency from {path}")
+                  if "milkbowl" in group or "vaultapi" in artifact:
+                      deps.remove(dep)
+                      removed += 1
+                      print(f"Removed dependency: {group}:{artifact}")
 
-              if removed:
-                  tree.write(path, encoding="UTF-8", xml_declaration=True)
-
+          tree.write(path, encoding="UTF-8", xml_declaration=True)
+          print(f"Total dependencies removed: {removed}")
           PY
 
-          echo "=== Checking remaining VaultAPI references ==="
-          grep -RniE 'VaultAPI|MilkBowl|vaultapi' buildsrc --include='pom.xml' || true
-
-          POM=$(find buildsrc -name pom.xml -print -quit)
-          echo "Building: $POM"
+          echo "=== Building plugin ==="
           mvn -B -ntp -f "$POM" clean package
         timeout-minutes: 10
+```
