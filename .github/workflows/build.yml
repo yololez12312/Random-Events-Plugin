@@ -1,8 +1,13 @@
+```yaml
 name: Build RandomWorldEvents
 
 on:
   push:
+    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -20,13 +25,65 @@ jobs:
           cache: maven
 
       - name: Extract source ZIP
-        run: unzip -q RandomWorldEvents-Source.zip -d buildsrc
+        shell: bash
+        run: |
+          ZIP=$(find . -type f -name 'RandomWorldEvents-Source.zip' -print -quit)
 
-      - name: Compile plugin
-        run: mvn -B -f buildsrc/RandomWorldEvents/pom.xml clean package
+          if [ -z "$ZIP" ]; then
+            echo "ERROR: Source ZIP not found"
+            exit 1
+          fi
+
+          mkdir -p buildsrc
+          unzip -o "$ZIP" -d buildsrc
+
+      - name: Remove VaultAPI dependency
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import glob
+          import xml.etree.ElementTree as ET
+
+          poms = glob.glob("buildsrc/**/pom.xml", recursive=True)
+
+          if not poms:
+              raise SystemExit("ERROR: No pom.xml found")
+
+          for pom in poms:
+              tree = ET.parse(pom)
+              root = tree.getroot()
+              ns = {"m": "http://maven.apache.org/POM/4.0.0"}
+
+              for deps in root.findall(".//m:dependencies", ns):
+                  for dep in list(deps):
+                      group = dep.findtext("m:groupId", default="", namespaces=ns)
+                      artifact = dep.findtext("m:artifactId", default="", namespaces=ns)
+
+                      if group == "com.github.MilkBowl" or artifact.lower() == "vaultapi":
+                          deps.remove(dep)
+                          print(f"Removed VaultAPI from {pom}")
+
+              tree.write(pom, encoding="UTF-8", xml_declaration=True)
+          PY
+
+      - name: Build plugin
+        shell: bash
+        run: |
+          POM=$(find buildsrc -type f -name pom.xml -print -quit)
+
+          if [ -z "$POM" ]; then
+            echo "ERROR: No pom.xml found"
+            exit 1
+          fi
+
+          echo "Building with: $POM"
+          mvn -B -ntp -f "$POM" clean package
+        timeout-minutes: 10
 
       - name: Upload plugin JAR
         uses: actions/upload-artifact@v4
         with:
-          name: RandomWorldEvents-JAR
-          path: buildsrc/RandomWorldEvents/target/*.jar
+          name: RandomWorldEvents
+          path: buildsrc/**/target/*.jar
+          if-no-files-found: error
+```
