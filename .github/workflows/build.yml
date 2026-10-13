@@ -37,33 +37,6 @@ jobs:
           mkdir -p buildsrc
           unzip -o "$ZIP" -d buildsrc
 
-      - name: Remove VaultAPI dependency
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import glob
-          import xml.etree.ElementTree as ET
-
-          poms = glob.glob("buildsrc/**/pom.xml", recursive=True)
-
-          if not poms:
-              raise SystemExit("ERROR: No pom.xml found inside the ZIP.")
-
-          for pom in poms:
-              tree = ET.parse(pom)
-              root = tree.getroot()
-              ns = {"m": "http://maven.apache.org/POM/4.0.0"}
-
-              for deps in root.findall(".//m:dependencies", ns):
-                  for dep in list(deps):
-                      group = dep.findtext("m:groupId", default="", namespaces=ns)
-                      artifact = dep.findtext("m:artifactId", default="", namespaces=ns)
-
-                      if group == "com.github.MilkBowl" or artifact.lower() == "vaultapi":
-                          deps.remove(dep)
-                          print(f"Removed VaultAPI from {pom}")
-
-              tree.write(pom, encoding="UTF-8", xml_declaration=True)
           PY
 
       - name: Build plugin
