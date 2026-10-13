@@ -1,36 +1,41 @@
-
       - name: Build plugin
         shell: bash
         run: |
-          POM=$(find buildsrc -type f -name pom.xml -print -quit)
+          echo "=== Finding all POM files ==="
+          find buildsrc -name pom.xml -print
 
-          if [ -z "$POM" ]; then
-            echo "ERROR: No pom.xml found"
-            exit 1
-          fi
+          echo "=== Searching for VaultAPI ==="
+          grep -RniE 'VaultAPI|MilkBowl|vaultapi' buildsrc --include='pom.xml' || true
 
-          python3 - "$POM" <<'PY'
-          import sys
+          python3 - <<'PY'
+          import glob
           import xml.etree.ElementTree as ET
 
-          path = sys.argv[1]
-          tree = ET.parse(path)
-          root = tree.getroot()
-          ns = {"m": "http://maven.apache.org/POM/4.0.0"}
+          for path in glob.glob("buildsrc/**/pom.xml", recursive=True):
+              tree = ET.parse(path)
+              root = tree.getroot()
+              ns = {"m": "http://maven.apache.org/POM/4.0.0"}
+              removed = 0
 
-          for deps in root.findall(".//m:dependencies", ns):
-              for dep in list(deps):
-                  group = dep.findtext("m:groupId", default="", namespaces=ns).strip()
-                  artifact = dep.findtext("m:artifactId", default="", namespaces=ns).strip()
-                  if group.lower() == "com.github.milkbowl" or artifact.lower() == "vaultapi":
-                      deps.remove(dep)
-                      print("Removed dependency:", group, artifact)
+              for deps in root.findall(".//m:dependencies", ns):
+                  for dep in list(deps):
+                      group = (dep.findtext("m:groupId", default="", namespaces=ns) or "").strip().lower()
+                      artifact = (dep.findtext("m:artifactId", default="", namespaces=ns) or "").strip().lower()
 
-          tree.write(path, encoding="UTF-8", xml_declaration=True)
+                      if group == "com.github.milkbowl" or artifact == "vaultapi":
+                          deps.remove(dep)
+                          removed += 1
+                          print(f"Removed VaultAPI dependency from {path}")
+
+              if removed:
+                  tree.write(path, encoding="UTF-8", xml_declaration=True)
+
           PY
 
-          echo "Checking again..."
-          grep -ni -B 4 -A 6 'VaultAPI\|MilkBowl' "$POM" || true
+          echo "=== Checking remaining VaultAPI references ==="
+          grep -RniE 'VaultAPI|MilkBowl|vaultapi' buildsrc --include='pom.xml' || true
 
+          POM=$(find buildsrc -name pom.xml -print -quit)
+          echo "Building: $POM"
           mvn -B -ntp -f "$POM" clean package
         timeout-minutes: 10
