@@ -1,0 +1,16 @@
+name: RandomWorldEvents
+version: 1.0.0
+main: com.godtrix.randomworldevents.RandomWorldEventsPlugin
+api-version: '1.21'
+softdepend: [Vault]
+author: Godtrix
+description: Money SMP-style random events for Paper/Purpur.
+commands:
+  randomworldevents:
+    description: Manage RandomWorldEvents
+    usage: /randomworldevents <force|start|stop|reroll|next|list|status|reload|enable|disable>
+    aliases: [rwe]
+permissions:
+  randomworldevents.admin:
+    description: Manage random events
+    default: op

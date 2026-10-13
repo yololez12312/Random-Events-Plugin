@@ -1,0 +1,10 @@
+# Times are in seconds. Events are global to all online players.
+settings:
+  auto-start: true
+  interval-seconds: 900
+  event-duration-seconds: 180
+  announce-countdown-seconds: 10
+  supply-rush-chest-count: 3
+  supply-rush-area-size-blocks: 3000
+  supply-rush-duration-seconds: 600
+  broadcast-prefix: '&6&lRANDOM WORLD EVENTS &8» &r'
