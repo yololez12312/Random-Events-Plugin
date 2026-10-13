@@ -9,8 +9,6 @@
             exit 1
           fi
 
-          echo "Building: $POM"
-          
           python3 - "$POM" <<'PY'
           import sys
           import xml.etree.ElementTree as ET
