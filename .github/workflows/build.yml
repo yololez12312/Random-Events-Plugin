@@ -10,9 +10,7 @@
           fi
 
           echo "Building: $POM"
-          echo "Checking for VaultAPI..."
-          grep -ni -B 4 -A 6 'VaultAPI\|MilkBowl' "$POM" || true
-
+          
           python3 - "$POM" <<'PY'
           import sys
           import xml.etree.ElementTree as ET
