@@ -18,11 +18,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
-          cache: maven
 
       - name: Extract source ZIP
         shell: bash
@@ -30,7 +29,8 @@ jobs:
           ZIP=$(find . -type f -name 'RandomWorldEvents-Source.zip' -print -quit)
 
           if [ -z "$ZIP" ]; then
-            echo "ERROR: Source ZIP not found"
+            echo "ERROR: RandomWorldEvents-Source.zip not found."
+            find . -maxdepth 4 -type f
             exit 1
           fi
 
@@ -47,7 +47,7 @@ jobs:
           poms = glob.glob("buildsrc/**/pom.xml", recursive=True)
 
           if not poms:
-              raise SystemExit("ERROR: No pom.xml found")
+              raise SystemExit("ERROR: No pom.xml found inside the ZIP.")
 
           for pom in poms:
               tree = ET.parse(pom)
@@ -72,11 +72,11 @@ jobs:
           POM=$(find buildsrc -type f -name pom.xml -print -quit)
 
           if [ -z "$POM" ]; then
-            echo "ERROR: No pom.xml found"
+            echo "ERROR: No pom.xml found."
             exit 1
           fi
 
-          echo "Building with: $POM"
+          echo "Building: $POM"
           mvn -B -ntp -f "$POM" clean package
         timeout-minutes: 10
 
