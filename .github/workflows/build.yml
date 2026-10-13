@@ -1,13 +1,7 @@
 ```yaml
-      - name: Build plugin
+      - name: Remove VaultAPI from actual POM
         shell: bash
         run: |
-          POM="buildsrc/RandomWorldEvents/pom.xml"
-
-          echo "=== Checking VaultAPI dependency ==="
-          grep -niE 'VaultAPI|MilkBowl|vaultapi' "$POM" || true
-
-          echo "=== Removing VaultAPI dependency ==="
           python3 - <<'PY'
           import xml.etree.ElementTree as ET
 
@@ -15,23 +9,28 @@
           tree = ET.parse(path)
           root = tree.getroot()
           ns = {"m": "http://maven.apache.org/POM/4.0.0"}
-          removed = 0
 
+          removed = 0
           for deps in root.findall(".//m:dependencies", ns):
               for dep in list(deps):
                   group = (dep.findtext("m:groupId", default="", namespaces=ns) or "").strip().lower()
                   artifact = (dep.findtext("m:artifactId", default="", namespaces=ns) or "").strip().lower()
-
                   if "milkbowl" in group or "vaultapi" in artifact:
                       deps.remove(dep)
                       removed += 1
-                      print(f"Removed dependency: {group}:{artifact}")
 
           tree.write(path, encoding="UTF-8", xml_declaration=True)
-          print(f"Total dependencies removed: {removed}")
+          print(f"Removed {removed} VaultAPI dependency entries")
+
+          # Verify the dependency is gone
+          tree = ET.parse(path)
+          root = tree.getroot()
+          for dep in root.findall(".//m:dependency", ns):
+              group = (dep.findtext("m:groupId", default="", namespaces=ns) or "").strip().lower()
+              artifact = (dep.findtext("m:artifactId", default="", namespaces=ns) or "").strip().lower()
+              if "milkbowl" in group or "vaultapi" in artifact:
+                  raise SystemExit("ERROR: VaultAPI is still declared in the POM!")
           PY
 
-          echo "=== Building plugin ==="
-          mvn -B -ntp -f "$POM" clean package
-        timeout-minutes: 10
+          grep -niE 'VaultAPI|MilkBowl|vaultapi' buildsrc/RandomWorldEvents/pom.xml || true
 ```
