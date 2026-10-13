@@ -1,43 +1,3 @@
-```yaml
-name: Build RandomWorldEvents
-
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Java 21
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - name: Extract source ZIP
-        shell: bash
-        run: |
-          ZIP=$(find . -type f -name 'RandomWorldEvents-Source.zip' -print -quit)
-
-          if [ -z "$ZIP" ]; then
-            echo "ERROR: RandomWorldEvents-Source.zip not found."
-            find . -maxdepth 4 -type f
-            exit 1
-          fi
-
-          mkdir -p buildsrc
-          unzip -o "$ZIP" -d buildsrc
-
-          PY
 
       - name: Build plugin
         shell: bash
@@ -45,18 +5,36 @@ jobs:
           POM=$(find buildsrc -type f -name pom.xml -print -quit)
 
           if [ -z "$POM" ]; then
-            echo "ERROR: No pom.xml found."
+            echo "ERROR: No pom.xml found"
             exit 1
           fi
 
           echo "Building: $POM"
+          echo "Checking for VaultAPI..."
+          grep -ni -B 4 -A 6 'VaultAPI\|MilkBowl' "$POM" || true
+
+          python3 - "$POM" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          path = sys.argv[1]
+          tree = ET.parse(path)
+          root = tree.getroot()
+          ns = {"m": "http://maven.apache.org/POM/4.0.0"}
+
+          for deps in root.findall(".//m:dependencies", ns):
+              for dep in list(deps):
+                  group = dep.findtext("m:groupId", default="", namespaces=ns).strip()
+                  artifact = dep.findtext("m:artifactId", default="", namespaces=ns).strip()
+                  if group.lower() == "com.github.milkbowl" or artifact.lower() == "vaultapi":
+                      deps.remove(dep)
+                      print("Removed dependency:", group, artifact)
+
+          tree.write(path, encoding="UTF-8", xml_declaration=True)
+          PY
+
+          echo "Checking again..."
+          grep -ni -B 4 -A 6 'VaultAPI\|MilkBowl' "$POM" || true
+
           mvn -B -ntp -f "$POM" clean package
         timeout-minutes: 10
-
-      - name: Upload plugin JAR
-        uses: actions/upload-artifact@v4
-        with:
-          name: RandomWorldEvents
-          path: buildsrc/**/target/*.jar
-          if-no-files-found: error
-```
